@@ -1,0 +1,13 @@
+streamlit 
+azure-cosmos 
+langchain 
+openai 
+pypdf
+autogen-agentchat==0.4.0
+autogen-ext[openai]==0.4.0
+autogen-ext[magentic-one,openai]==0.4.0
+python-dotenv
+langchain-community
+azure-identity
+azure-search-documents
+PyPDF2
