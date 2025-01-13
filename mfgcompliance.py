@@ -14,6 +14,7 @@ import wave
 from PIL import Image, ImageDraw
 from pathlib import Path
 import numpy as np
+from logger import log_metrics
 
 
 # Load .env file
@@ -34,11 +35,12 @@ SPEECH_KEY = os.getenv('SPEECH_KEY')
 SPEECH_REGION = os.getenv('SPEECH_REGION')
 SPEECH_ENDPOINT = os.getenv('SPEECH_ENDPOINT')
 
-def processpdfwithprompt(query: str, index: str):
+def processpdfwithprompt(query: str, index: str, user_info, ip_address, user_agent, browser_utc):
     returntxt = ""
     citationtxt = ""
     selected_optionsearch = "vector_semantic_hybrid"
     #  search_index = "mfggptdata"
+    startime = time.time()
     message_text = [
     {"role":"system", "content":"""you are provided with instruction on what to do. Be politely, and provide positive tone answers. 
      answer only from data source provided. unable to find answer, please respond politely and ask for more information.
@@ -111,20 +113,40 @@ def processpdfwithprompt(query: str, index: str):
             # <br> ------------------------------------------------------------------------------------------ <br>\n"""
             # print(citationtxt)
 
+    # log metrics now
+    # Extract token usage metrics
+    token_usage = response.usage  # Extract usage details
+    input_tokens = token_usage.prompt_tokens
+    output_tokens = token_usage.completion_tokens
+    total_tokens = token_usage.total_tokens
+    totalseconds = time.time() - startime
+
+    log_metrics(
+        user=user_info['username'],
+        company_name=user_info.get('companyname', 'unknown'),
+        ip_address=ip_address,
+        user_agent=user_agent,
+        query=query,
+        response=response.choices[0].message.content,  # Extracted response content
+        browser_utc=browser_utc,
+        token_input=input_tokens,
+        token_output=output_tokens,
+        totalseconds=totalseconds
+    )
+
     return citationtxt
 
-def extractmfgresults(query, index):
+def extractmfgresults(query, index, user_info, ip_address, user_agent, browser_utc):
     returntxt = ""
 
     rfttext = ""
+    starttime = time.time()
 
-    citationtext = processpdfwithprompt(query, index)
+    citationtext = processpdfwithprompt(query, index, user_info, ip_address, user_agent, browser_utc)
 
     message_text = [
     {"role":"system", "content":f"""You are Manufacturing Complaince, OSHA, CyberSecurity AI agent. Be politely, and provide positive tone answers.
      Based on the question do a detail analysis on information and provide the best answers.
-     Here is the Manufacturing content provided:
-     {rfttext}
 
      Use the data source content provided to answer the question.
      Data Source: {citationtext}
@@ -144,6 +166,26 @@ def extractmfgresults(query, index):
         top_p=0.0,
         seed=42,
         max_tokens=1000,
+    )
+
+    # Extract token usage metrics
+    token_usage = response.usage  # Extract usage details
+    input_tokens = token_usage.prompt_tokens
+    output_tokens = token_usage.completion_tokens
+    total_tokens = token_usage.total_tokens
+    totalseconds = time.time() - starttime
+
+    log_metrics(
+        user=user_info['username'],
+        company_name=user_info.get('companyname', 'unknown'),
+        ip_address=ip_address,
+        user_agent=user_agent,
+        query=query,
+        response=response.choices[0].message.content,  # Extracted response content
+        browser_utc=browser_utc,
+        token_input=input_tokens,
+        token_output=output_tokens,
+        totalseconds=totalseconds
     )
 
     returntxt = response.choices[0].message.content

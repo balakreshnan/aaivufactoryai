@@ -1,3 +1,4 @@
+from datetime import datetime
 import time
 import streamlit as st
 from azure.cosmos import CosmosClient, exceptions
@@ -9,6 +10,7 @@ from azure.identity import DefaultAzureCredential
 from langchain.document_loaders import PyPDFLoader
 from langchain.vectorstores import FAISS
 from mfgcompliance import extractmfgresults
+from logger import log_metrics
 import tempfile
 import os
 import PyPDF2
@@ -135,7 +137,7 @@ def extract_text_from_pdf(pdf_file):
     except Exception as e:
         return f"Error extracting text: {str(e)}"
 
-def predict(file, query):
+def predict(file, query, user_info, ip_address, user_agent, browser_utc):
     history_openai_format = []
     #file_paths = [file.name for file in upload_button]
     pdftext = ""
@@ -185,6 +187,26 @@ def predict(file, query):
 
     returntext = response.choices[0].message.content + f" \nTime Taken: ({response_time:.2f} seconds)"
 
+    # Extract token usage metrics
+    token_usage = response.usage  # Extract usage details
+    input_tokens = token_usage.prompt_tokens
+    output_tokens = token_usage.completion_tokens
+    total_tokens = token_usage.total_tokens
+
+    log_metrics(
+        user=user_info['username'],
+        company_name=user_info.get('companyname', 'unknown'),
+        ip_address=ip_address,
+        user_agent=user_agent,
+        query=query,
+        response=response.choices[0].message.content,  # Extracted response content
+        browser_utc=browser_utc,
+        token_input=input_tokens,
+        token_output=output_tokens,
+        totalseconds=response_time
+    )
+
+
     return returntext
 
 def main():
@@ -195,6 +217,7 @@ def main():
         st.header("Login")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
+        
         if st.button("Login"):
             user = authenticate_user(username, password)
             if user:
@@ -208,6 +231,12 @@ def main():
     # If authenticated
     if "user" in st.session_state:
         st.sidebar.success("Authenticated!")
+
+        welcome_message = (
+            f"Welcome {st.session_state['user']['username']} "
+            f"from Company: {st.session_state['user']['companyname']}!"
+        )
+        st.write(welcome_message)
 
         # Display user indices
         st.subheader("Available Indices")
@@ -225,18 +254,28 @@ def main():
 
             search_client = create_search_client(selected_index['id'])
 
+            user_info = st.session_state["user"]
             chat_history = st.session_state.get("chat_history", [])
+            #ip_address = st.request.remote_addr if hasattr(st.request, 'remote_addr') else "unknown"
+            #user_agent = st.request.headers.get("User-Agent", "unknown")
+            ip_address = "WIP"  # Placeholder for IP address
+            user_agent = "WIP"  # Placeholder for user agent
+            browser_utc = datetime.now().isoformat()  # Placeholder for browser UTC time
             user_input = st.text_input("Ask a question:", "what are the personal protection i should consider in manufacturing?")
 
             if st.button("Submit") and user_input:
                 # response = search_and_chat(search_client, user_input, chat_history, selected_index['id'])
                 if uploaded_file:
                     #retriever = process_pdf(uploaded_file)
-                    response = predict(uploaded_file, user_input)
+                    
+                    response = predict(uploaded_file, user_input, user_info, ip_address, user_agent, browser_utc)
                 else:
-                    response = extractmfgresults(user_input, selected_index['id'])
+                    response = extractmfgresults(user_input, selected_index['id'], user_info, ip_address, user_agent, browser_utc)
                 chat_history.append((user_input, response))
                 st.session_state["chat_history"] = chat_history
+
+                # Extract token usage metrics                   
+                #log_metrics(user_info['username'], user_info.get('companyname', 'unknown'), ip_address, user_agent, user_input, response, browser_utc, token_input, token_output)
 
             for question, answer in chat_history:
                 st.write(f"**You:** {question}")
