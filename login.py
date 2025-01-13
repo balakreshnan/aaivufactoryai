@@ -210,7 +210,7 @@ def predict(file, query, user_info, ip_address, user_agent, browser_utc):
     return returntext
 
 def main():
-    st.title("🔐 AI Chat with Azure Search")
+    #st.title("🔐 AI Chat with Azure Search")
 
     # User Authentication
     with st.sidebar:
@@ -228,6 +228,12 @@ def main():
             else:
                 st.error("Invalid credentials. Please try again.")
 
+        # Logout button
+        if st.button("Logout"):
+            st.session_state.clear()  # Clear session state
+            #st.experimental_rerun()  # Reload app
+            st.write("You have been logged out.")
+
     # If authenticated
     if "user" in st.session_state:
         st.sidebar.success("Authenticated!")
@@ -236,12 +242,22 @@ def main():
             f"Welcome {st.session_state['user']['username']} "
             f"from Company: {st.session_state['user']['companyname']}!"
         )
-        st.write(welcome_message)
+        st.title(welcome_message)
 
         # Display user indices
         st.subheader("Available Indices")
         indices = st.session_state.get("indices", [])
-        selected_index = st.selectbox("Choose an index to interact with:", indices)
+        # selected_index = st.selectbox("Choose an index to interact with:", indices)
+        # Extract display names for the selectbox  
+        # Extract names and ids  
+        index_names = [index["name"] for index in indices]  
+        index_mapping = {index["name"]: index["id"] for index in indices}  
+        
+        # Create a selectbox with display names  
+        selected_name = st.selectbox("Choose an index to interact with:", index_names)  
+        
+        # Get the corresponding ID for the selected name  
+        selected_id = index_mapping[selected_name]
 
         # PDF Upload
         st.subheader("Upload and Chat with Your PDF")
@@ -249,10 +265,14 @@ def main():
         
 
         # Chat Interface
-        if selected_index:
-            st.subheader(f"Chat with Index: {selected_index['name']}")
+        if selected_name:
+            # Get the corresponding ID for the selected name  
+            selected_id = index_mapping[selected_name]
+            # st.subheader(f"Chat with Index: {selected_index['name']}")
+            st.subheader(f"Chat with Index: {selected_id}")
 
-            search_client = create_search_client(selected_index['id'])
+            # search_client = create_search_client(selected_index['id'])
+            search_client = create_search_client(selected_id)
 
             user_info = st.session_state["user"]
             chat_history = st.session_state.get("chat_history", [])
@@ -270,7 +290,7 @@ def main():
                     
                     response = predict(uploaded_file, user_input, user_info, ip_address, user_agent, browser_utc)
                 else:
-                    response = extractmfgresults(user_input, selected_index['id'], user_info, ip_address, user_agent, browser_utc)
+                    response = extractmfgresults(user_input, selected_id, user_info, ip_address, user_agent, browser_utc)
                 chat_history.append((user_input, response))
                 st.session_state["chat_history"] = chat_history
 
