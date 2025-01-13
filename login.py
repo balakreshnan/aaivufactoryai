@@ -13,6 +13,7 @@ from mfgcompliance import extractmfgresults
 from logger import log_metrics
 import tempfile
 import os
+import json
 import PyPDF2
 
 from openai import AzureOpenAI
@@ -243,6 +244,16 @@ def main():
             f"from Company: {st.session_state['user']['companyname']}!"
         )
         st.title(welcome_message)
+        #st.write(st.context.headers)  # Display headers for debugging purposes
+        # Parse the string into a dictionary  
+        headers = st.context.headers  # Convert the string to a dictionary
+        
+        # Access individual values  
+        host = headers.get("Host")  
+        origin = headers.get("Origin")  
+        user_agent = headers.get("User-Agent")  
+        cookie = headers.get("Cookie")  
+
 
         # Display user indices
         st.subheader("Available Indices")
@@ -278,8 +289,9 @@ def main():
             chat_history = st.session_state.get("chat_history", [])
             #ip_address = st.request.remote_addr if hasattr(st.request, 'remote_addr') else "unknown"
             #user_agent = st.request.headers.get("User-Agent", "unknown")
-            ip_address = "WIP"  # Placeholder for IP address
-            user_agent = "WIP"  # Placeholder for user agent
+            ip_address = host  # Placeholder for IP address
+            user_agent = user_agent  # Placeholder for user agent
+            origin = origin  # Placeholder for origin
             browser_utc = datetime.now().isoformat()  # Placeholder for browser UTC time
             user_input = st.text_input("Ask a question:", "what are the personal protection i should consider in manufacturing?")
 
